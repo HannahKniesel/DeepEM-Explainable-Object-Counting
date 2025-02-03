@@ -169,3 +169,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# costum 
+data
+data/
+pretrained_models
+pretrained_models/
+logs
+logs/
