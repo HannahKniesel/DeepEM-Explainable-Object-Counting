@@ -234,7 +234,7 @@ class Logger:
         save_to = os.path.join(self.log_dir, "test_results.txt")
         result_str = f"Test loss: {test_loss:.4f}\n"
         for metric in metrics.keys(): 
-            result_str += f"{metric}: {metrics[metric]:.4f}"   
+            result_str += f"{metric}: {metrics[metric]:.4f}\n"   
             
         with open(save_to, "w") as f:
             f.write(result_str)
