@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 import numpy as np
 
-from lib.Utils import load_json
+from deepEM.Utils import load_json
 
 
 class Logger:

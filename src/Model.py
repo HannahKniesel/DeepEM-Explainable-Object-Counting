@@ -5,7 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 from torchvision import transforms
 
-from lib.Model import AbstractModel
+from deepEM.Model import AbstractModel
 
 weights_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pretrained_models')
 

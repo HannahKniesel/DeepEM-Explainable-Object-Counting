@@ -9,7 +9,7 @@ import ipywidgets as widgets
 from IPython.display import display, HTML
 from pathlib import Path
 
-from lib.Utils import format_time, load_json, extract_defaults
+from deepEM.Utils import format_time, load_json, extract_defaults
 
 config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'configs')
 

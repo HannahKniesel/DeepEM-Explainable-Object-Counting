@@ -7,7 +7,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from torch.utils.data import DataLoader
 
-from lib.Utils import load_json, extract_defaults, get_fixed_parameters, format_time
+from deepEM.Utils import load_json, extract_defaults, get_fixed_parameters, format_time
 
 
 config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'configs')

@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from pytorch_grad_cam import GradCAM
 
 
-from lib.Inferencer import AbstractInference
+from deepEM.Inferencer import AbstractInference
 
 from src.Dataset import ResizeToMultipleWithLocations, patchify_image, stitch_patches
 from src.Model import Model 

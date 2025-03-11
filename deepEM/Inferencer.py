@@ -5,7 +5,7 @@ from pathlib import Path
 import datetime
 import torch
 
-from lib.Utils import print_error, print_info, print_warning
+from deepEM.Utils import print_error, print_info, print_warning
 
 class AbstractInference(ABC):
     """

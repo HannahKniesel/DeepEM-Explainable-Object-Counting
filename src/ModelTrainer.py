@@ -9,7 +9,7 @@ from PIL import Image
 import io
 
 
-from lib.ModelTrainer import AbstractModelTrainer
+from deepEM.ModelTrainer import AbstractModelTrainer
 from src.Model import Model 
 from src.Dataset import TrainDataset, InferenceDataset
 
