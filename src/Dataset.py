@@ -90,49 +90,130 @@ class RandomResizeWithLocations:
         return resized_img, resized_locations
     
 # Crop random part of full sized image to fit to models input size
-class RandomCropWithLocations:
-    def __init__(self, size):
+import random
+import torch
+import torchvision.transforms.functional as F
+from collections import defaultdict
+
+class BalancedRandomCropWithLocations:
+    def __init__(self, size, empty_crop_prob=0.5):
+        """
+        Args:
+            size (tuple): Target crop size (height, width).
+            empty_crop_prob (float): Probability of selecting a fully random crop.
+        """
         self.size = size
+        self.empty_crop_prob = empty_crop_prob
+        self.class_counts_instance = defaultdict(int)  # Tracks occurrences of each class
+        self.class_counts_patch = defaultdict(int)  # Tracks occurrences of each class
+        
 
     @staticmethod
-    def get_params(img, output_size):
+    def get_params(img, locations, output_size, force_empty=False, selected_idx=None):
+        """Select a random crop position, optionally centered on a selected object."""
         w, h = F.get_image_size(img)
         th, tw = output_size
-        
+
         if w == tw and h == th:
-            return 0, 0, h, w
-        
-        i = random.randint(0, h - th)
-        j = random.randint(0, w - tw)
-        
+            return 0, 0, h, w  # No cropping needed
+
+        if force_empty or locations.shape[0] == 0 or selected_idx is None:
+            # Completely random crop
+            i = random.randint(0, h - th)
+            j = random.randint(0, w - tw)
+        else:
+            # Pick a crop around the selected object with a random offset
+            x, y = locations[selected_idx]
+
+            # Convert x and y to Python integers
+            x = int(x.item())  # .item() gets the value as a Python scalar
+            y = int(y.item())
+
+            # Compute min and max crop positions that keep (x, y) inside
+            min_i = max(0, y - th + 1)  # Ensures y is within [i, i+th]
+            max_i = min(h - th, y)      # Ensures crop stays in bounds
+
+            min_j = max(0, x - tw + 1)  # Ensures x is within [j, j+tw]
+            max_j = min(w - tw, x)      # Ensures crop stays in bounds
+
+            # Pick a random offset within valid bounds
+            i = random.randint(min_i, max_i)
+            j = random.randint(min_j, max_j)
+
+
         return i, j, th, tw
 
+    def select_underrepresented_class(self, lbls):
+        """Find the most underrepresented class in the image."""
+        class_frequencies = {cls: self.class_counts_instance[cls] for cls in set(lbls)}
+        return min(class_frequencies, key=class_frequencies.get, default=None)
+
+    def print_class_distribution(self):
+        """Prints the tracked class distribution."""
+        print("Current class distribution per instance:")
+        for cls, count in sorted(self.class_counts_instance.items(), key=lambda x: x[1], reverse=True):
+            print(f"Class: {cls}, Count: {count}")
+            
+        print("\nCurrent class distribution per patch:")
+        for cls, count in sorted(self.class_counts_patch.items(), key=lambda x: x[1], reverse=True):
+            print(f"Class: {cls}, Count: {count}")
+
     def __call__(self, img, locations, lbls):
+        """
+        Args:
+            img (PIL Image or Tensor): Input image.
+            locations (Tensor): Object locations (Nx2) with (x, y) coordinates.
+            lbls (list): Corresponding class labels for each object.
+
+        Returns:
+            img (Tensor): Cropped image.
+            cropped_locations (Tensor): Updated object locations.
+            cropped_lbls (list): Updated labels.
+        """
+        force_empty = random.random() < self.empty_crop_prob  # 50% chance for random crop
+
+        selected_idx = None  # Default to None (random crop)
+
+        if not force_empty and len(lbls) > 0:
+            # Find an underrepresented class
+            target_class = self.select_underrepresented_class(lbls)
+
+            if target_class is not None:
+                # Select an index where this class is present
+                possible_indices = [i for i, lbl in enumerate(lbls) if lbl == target_class]
+                if possible_indices:
+                    selected_idx = random.choice(possible_indices)
+
         # Get crop parameters
-        i, j, h, w = self.get_params(img, self.size)
-        
-        # Perform image cropping
-        img = F.crop(img, i, j, h, w)
-        
-        # Adjust the locations based on the crop
-        # Subtract the crop offsets (i, j) from the location coordinates
-        if(locations.shape[0]>0):
+        i, j, h, w = self.get_params(img, locations, self.size, force_empty=force_empty, selected_idx=selected_idx)
+        img_cropped = F.crop(img, int(i), int(j), int(h), int(w))
+
+
+        # Adjust locations based on crop offset
+        if locations.shape[0] > 0:
             cropped_locations = locations - torch.tensor([j, i])
 
-            # Filter out locations that are outside the cropped region
+            # Filter locations inside the cropped area
             valid_mask = (
                 (cropped_locations[:, 0] >= 0) & (cropped_locations[:, 0] < w) &
                 (cropped_locations[:, 1] >= 0) & (cropped_locations[:, 1] < h)
             )
 
             cropped_locations = cropped_locations[valid_mask]
-            cropped_lbls = lbls[valid_mask.numpy()]
-        
-        else: 
+            cropped_lbls = [lbls[idx] for idx in valid_mask.nonzero().flatten().tolist()]
+        else:
             cropped_locations = locations
-            cropped_lbls = lbls
+            cropped_lbls = []
+            self.class_counts_patch["empty"] += 1
 
-        return img, cropped_locations, cropped_lbls
+        # Update class occurrence tracking
+        for lbl in cropped_lbls:
+            self.class_counts_instance[lbl] += 1
+            
+        for lbl in np.unique(cropped_lbls):
+            self.class_counts_patch[lbl] += 1
+
+        return img_cropped, cropped_locations, cropped_lbls
 
     
 # Resize the image to a multiple of the base_size, such that the image can be divided into a set of patches of sixe base_size x base_size
@@ -290,19 +371,26 @@ class TrainDataset(VirusDataset):
     def __init__(self, annotation_file, img_dir, split, transforms = None):
         super().__init__(annotation_file, img_dir, split, transforms = transforms)  
         self.transform_resize = RandomResizeWithLocations(scale=(0.8,1.2))
-        self.transform_crop = RandomCropWithLocations(size=(224, 224))
+        self.transform_crop = BalancedRandomCropWithLocations(size=(224, 224), empty_crop_prob=1/len(self.class_names))
 
         
     def __getitem__(self, idx):
         img = torch.Tensor(self.imgs[idx])
         locations = torch.Tensor(self.annotations[idx]["coords"])
         lbls = np.array(self.annotations[idx]["lbls"])
-
         
         resized_img, resized_locations = self.transform_resize(img[None,None,...], locations)
         cropped_img, cropped_locations, cropped_lbls = self.transform_crop(resized_img.squeeze(), resized_locations, lbls)
         cropped_img = cropped_img[None,...]
-
+        """print(f"Locations shape: {cropped_locations.shape}")
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.imshow(cropped_img.squeeze())
+        plt.title(", ".join(cropped_lbls))
+        if(cropped_locations.shape[0]):
+            plt.scatter(cropped_locations[:,0], cropped_locations[:,1])
+        plt.show()
+        plt.close()"""
         counts = []
         for class_name in self.class_names: 
             counts.append(np.sum(cropped_lbls == class_name))
