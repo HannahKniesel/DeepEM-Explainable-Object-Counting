@@ -224,13 +224,25 @@ class ModelTrainer(AbstractModelTrainer):
         
         metrics = {"MAE": mae}
         
+        
+        zeros = torch.zeros_like(outputs)
+        fn = torch.max(zeros, outputs-targets).mean(dim=0) # (bs, num_classes)
+        fp = torch.max(zeros, targets-outputs).mean(dim=0) # (bs, num_classes)
+        tp = torch.min(targets, outputs).mean(dim=0) # (bs, num_classes)
+        metrics["FN"] = torch.sum(fn)
+        metrics["FP"] = torch.sum(fp)
+        metrics["TP"] = torch.sum(tp)
+        
+                
         num_classes = outputs.shape[-1]
         class_names = self.val_loader.dataset.class_names
         for n in range(num_classes):
             class_o = outputs[:,n].cpu()
             class_t = targets[:,n].cpu()
-            metrics[f"MAE-class-{class_names[n]}"] = torch.abs(class_o - class_t).mean().item()
-            # TODO Add more metrics      
+            metrics[f"MAE-{class_names[n]}"] = torch.abs(class_o - class_t).mean().item()
+            metrics[f"FN-{class_names[n]}"] = fn[n]
+            metrics[f"FP-{class_names[n]}"] = fp[n]
+            metrics[f"TP-{class_names[n]}"] = tp[n]
             
         return metrics
         

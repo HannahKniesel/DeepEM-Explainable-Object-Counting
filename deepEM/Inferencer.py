@@ -44,8 +44,11 @@ class AbstractInference(ABC):
             if os.path.basename(input_path) == "best_model.pth":
                 print_info(f"Found model checkpoint at {input_path}")
                 return input_path
-            else:
-                print_error("File is not named 'best_model.pth'. You should provide a file with the name 'best_model.pth'")
+            elif(input_path.endswith('.pth')):
+                print_warning("Cound not find a trained model: File is not named 'best_model.pth'. You should provide a file with the name 'best_model.pth' as this is the fully trained model saved at the best validation epoch.")
+                return input_path
+            else: 
+                print_error(f"Could not find a trained model: The provided file {input_path} is not a model checkpoint (.pth).")
                 return None
         # Check if the input is a directory
         elif os.path.isdir(input_path):
@@ -54,10 +57,10 @@ class AbstractInference(ABC):
                 if "best_model.pth" in files:
                     print_info(f"Found model checkpoint at {input_path}")
                     return os.path.join(root, "best_model.pth")
-            print_error("'best_model.pth' not found in the directory or its subdirectories. Please provide the file directly or provide a directory which contains the file.")
+            print_error("Cound not find a trained model: 'best_model.pth' not found in the directory or its subdirectories. Please provide the file directly or provide a directory which contains the file.")
             return None
         else:
-            print_error("The provided path is neither a valid file nor a directory.")
+            print_error(f"Cound not find a trained model: The provided path {input_path} is neither a valid file nor a directory.")
             return None
         
     def load_metadata(self) -> None:
