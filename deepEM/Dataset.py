@@ -37,7 +37,6 @@ class EMDataset(Dataset, abc.ABC):
             self.data_paths = test
         else:
             print(f"{split} not implemented. Please try 'train', 'val' or 'test'.")
-        print(f"Setup Dataset with {len(self.data_paths)} datapoints.")
 
         self.annotations_dir = annotations_dir
         self.transform = transform

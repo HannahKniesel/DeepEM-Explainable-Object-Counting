@@ -259,7 +259,6 @@ class VirusDataset(Dataset):
             else:
                 print(f"{split} not implemented. Please try 'train', 'val' or 'test'.")
                 
-            print(f"Setup Dataset with {len(self.class_names)} classes: {self.class_names} and {len(self.imgs)} micrographs.")
 
 
         self.num_micrographs = len(self.imgs)

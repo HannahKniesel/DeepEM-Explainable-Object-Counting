@@ -28,6 +28,7 @@ def create_model(class_names):
     state = torch.load(
         Path(os.path.join(weights_dir, "cem500k_mocov2_resnet50_200ep.pth.tar")),
         map_location="cpu",
+        weights_only=True
     )
 
     pretrained_norms = state["norms"]

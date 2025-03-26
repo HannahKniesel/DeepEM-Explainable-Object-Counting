@@ -41,7 +41,6 @@ class Logger:
         self.plots_dir = os.path.join(self.log_dir, "plots")
         self.samples_dir = os.path.join(self.log_dir, "samples")
 
-        print(f"Logger initialized. Logs will be saved to: {self.log_dir}")
 
         # Set up the logger for info, warning, and error logging
         self.logger = logging.getLogger("Logger")
@@ -68,6 +67,8 @@ class Logger:
         # Add handlers to the logger
         self.logger.addHandler(file_handler)
         self.logger.addHandler(stream_handler)
+        self.log_info(f"Logger initialized. Logs will be saved to: {self.log_dir}")
+
         
     def init_directories(self):
         os.makedirs(self.checkpoints_dir, exist_ok=True)
@@ -158,7 +159,7 @@ class Logger:
         torch.save(model.state_dict(), checkpoint_path)
         self.log_info(f"Checkpoint saved: {checkpoint_path} (Validation Loss: {val_loss:.4f})")
 
-    def plot_training_curves(self, train_loss, train_epoch, val_loss, val_epoch):
+    def plot_training_curves(self, train_loss, train_epoch, val_loss, val_epoch, show = False):
         """
         Plot and save training and validation loss curves.
         
@@ -175,9 +176,11 @@ class Logger:
         plt.title("Training and Validation Loss")
         
         plot_path = os.path.join(self.plots_dir, "training_curves.png")
-        plt.savefig(plot_path)
-        plt.close()
-        self.log_info(f"Training curves saved to {plot_path}")
+        if(show):
+            plt.show()
+        else:
+            plt.savefig(plot_path)
+            plt.close()
 
     def log_test_metrics(self, metrics):
         """
