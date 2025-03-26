@@ -102,7 +102,7 @@ class ModelTrainer(AbstractModelTrainer):
             if(len(indices_val) == self.parameter["images_to_visualize"]):
                 break
         vis_val_subset = torch.utils.data.Subset(val_dataset, indices_val)
-        val_vis_loader = DataLoader(vis_val_subset, batch_size=self.parameter["batch_size"], shuffle=False)
+        val_vis_loader = DataLoader(vis_val_subset, batch_size=int(self.parameter["batch_size"]), shuffle=False)
         
         indices_test = []
         for idx,item in enumerate(test_dataset):
@@ -112,7 +112,7 @@ class ModelTrainer(AbstractModelTrainer):
             if(len(indices_test) == self.parameter["images_to_visualize"]):
                 break
         vis_test_subset = torch.utils.data.Subset(test_dataset, indices_test)
-        test_vis_loader = DataLoader(vis_test_subset, batch_size=self.parameter["batch_size"], shuffle=False)
+        test_vis_loader = DataLoader(vis_test_subset, batch_size=int(self.parameter["batch_size"]), shuffle=False)
         return val_vis_loader, test_vis_loader
           
         

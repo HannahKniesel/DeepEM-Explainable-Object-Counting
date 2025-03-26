@@ -4,6 +4,7 @@ import copy
 import math
 import time
 import numpy as np
+from tqdm import tqdm
 from abc import ABC, abstractmethod
 from torch.utils.data import DataLoader
 
@@ -52,7 +53,6 @@ class AbstractModelTrainer(ABC):
         
         if(not self.model):
             self.model = self.setup_model()
-            self.logger.log_info("Model was setup.")
         
         # setup dataloaders
         trainset, valset, testset = self.setup_datasets()
@@ -158,11 +158,11 @@ class AbstractModelTrainer(ABC):
         torch.manual_seed(42)
         shuffled_indices = torch.randperm(len(val_dataset))[:self.parameter["images_to_visualize"]]
         vis_val_subset = torch.utils.data.Subset(val_dataset, shuffled_indices)
-        val_vis_loader = DataLoader(vis_val_subset, batch_size=self.parameter["batch_size"], shuffle=False)
+        val_vis_loader = DataLoader(vis_val_subset, batch_size=int(self.parameter["batch_size"]), shuffle=False)
         
         shuffled_indices = torch.randperm(len(test_dataset))[:self.parameter["images_to_visualize"]]
         vis_test_subset = torch.utils.data.Subset(test_dataset, shuffled_indices)
-        test_vis_loader = DataLoader(vis_test_subset, batch_size=self.parameter["batch_size"], shuffle=False)
+        test_vis_loader = DataLoader(vis_test_subset, batch_size=int(self.parameter["batch_size"]), shuffle=False)
         return val_vis_loader, test_vis_loader
         
         
@@ -186,9 +186,9 @@ class AbstractModelTrainer(ABC):
         """
         
         # Create dataloaders
-        train_loader = DataLoader(train_dataset, batch_size=self.parameter["batch_size"], shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=self.parameter["batch_size"], shuffle=False)
-        test_loader = DataLoader(test_dataset, batch_size=self.parameter["batch_size"], shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=int(self.parameter["batch_size"]), shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=int(self.parameter["batch_size"]), shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=int(self.parameter["batch_size"]), shuffle=False)
     
 
         return train_loader, val_loader, test_loader
@@ -254,7 +254,6 @@ class AbstractModelTrainer(ABC):
                 idx +=1
                 img = img.convert("RGBA")
                 img.save(os.path.join(self.logger.samples_dir, f"{file_name}_{idx}.png"))
-        self.logger.log_info(f"Saved visualizations to {os.path.join(self.logger.samples_dir, f'{file_name}_*')}")
             
     def inference_metadata(self):
         """
@@ -364,7 +363,6 @@ class AbstractModelTrainer(ABC):
         # Save latest model for possible resuming of training
         checkpoint_path = os.path.join(self.logger.checkpoints_dir, f"latest_model.pth")
         torch.save(checkpoint, checkpoint_path)
-        self.logger.log_info(f"Current model checkpoint saved to {checkpoint_path}")
         
         
         # Save best model for later use    
@@ -378,18 +376,15 @@ class AbstractModelTrainer(ABC):
             # Save model, optimizer, and scheduler state
             torch.save(checkpoint, checkpoint_path)
 
-            self.logger.log_info(f"Best model checkpoint saved to {checkpoint_path} (Validation Loss: {val_loss:.4f})")
             
             # Save scripted model for easier exchange of model for inference. 
             checkpoint_path = os.path.join(self.logger.checkpoints_dir, "model_scripted.pt")
             self.model.eval()
             scripted_model = torch.jit.script(self.model)
             scripted_model.save(checkpoint_path)
-            self.logger.log_info(f"Saved best model checkpoint for inference to {checkpoint_path} (Validation Loss: {val_loss:.4f})")
             
         else:
             self.patience_counter += 1
-            self.logger.log_info(f"No improvement in validation loss. Patience counter: {self.patience_counter}/{self.parameter['early_stopping_patience']}")
 
     def load_checkpoint(self, checkpoint_path):
         """
@@ -441,7 +436,6 @@ class AbstractModelTrainer(ABC):
                 self.scheduler.step()
         
         train_loss /= len(self.train_loader)
-        self.logger.log_info(f"Epoch {epoch} - Training loss: {train_loss:.4f}")
 
         # Validation loop
         
@@ -470,9 +464,6 @@ class AbstractModelTrainer(ABC):
 
                 # Format metrics into a single log string
                 metrics_str = ", ".join(f"{metric}: {avg_value:.4f}" for metric, avg_value in metrics_avg.items())
-
-                # Log validation loss and metrics
-                self.logger.log_info(f"Epoch {epoch} - Validation loss: {val_loss:.4f}, {metrics_str}")
 
                 # Save best model checkpoint and apply early stopping
                 self.save_checkpoint(epoch, val_loss)
@@ -533,7 +524,6 @@ class AbstractModelTrainer(ABC):
         
         """
         self.logger.init_directories()
-        self.logger.log_info(f"Start Training | Epoch: {self.num_epochs} | Dataset size: {len(self.train_loader.dataset)} | Parameters: {self.parameter} ")
         # Resume training from checkpoint if specified, otherwise reset parameters before training
         if self.resume_from_checkpoint:
             self.load_checkpoint(self.resume_from_checkpoint)
@@ -547,14 +537,14 @@ class AbstractModelTrainer(ABC):
         val_epoch = []
         train_epoch = []
         accum_time = 0
-        for epoch in range(self.num_epochs):
+        for epoch in tqdm(range(self.num_epochs), desc=f"[Training Run] | Num Epochs: {self.num_epochs} | Dataset size: {len(self.train_loader.dataset)}"):
             start_time = time.time()
             train_loss, val_loss, early_stop = self.train_epoch(epoch)
             end_time = time.time()
             elapsed_time = end_time - start_time
             accum_time += elapsed_time
             remaining_time = (self.num_epochs - (epoch+1))*(accum_time/(epoch+1))
-            self.logger.log_info(f"Avg time single epoch: {format_time(accum_time/(epoch+1))} | Remaining time training: {format_time(remaining_time)}")
+            # self.logger.log_info(f"Avg time single epoch: {format_time(accum_time/(epoch+1))} | Remaining time training: {format_time(remaining_time)}")
             
             train_loss_history.append(train_loss)
             train_epoch.append(epoch)
@@ -572,7 +562,8 @@ class AbstractModelTrainer(ABC):
             # Step the learning rate scheduler if available
             if self.scheduler and (self.parameter['scheduler_step_by'] == "epoch"):
                 self.scheduler.step()
-
+        self.logger.plot_training_curves(train_loss_history, train_epoch, val_loss_history, val_epoch, show = True)
+        self.logger.log_info(f"Finished training. Find logs and model checkpoints at: {self.logger.log_dir}")
         return np.min(val_loss_history)
 
 

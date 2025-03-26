@@ -54,66 +54,12 @@ class ModelTuner(ABC):
             v = child.value
             parameters[child.description] = float(v) if ('.' in v) or ('e' in v) else int(v) 
         return parameters    
-             
-        
-        
-    # Interactive Widgets for JSON Input
-    def create_hyperparameter_widgets(self):
-        widgets_list = []
-
-        # General Parameters
-        title = widgets.HTML(f"<h1>Hyperparameter Sweep</h1> \
-                             <p>A hyperparameter sweep is a systematic exploration of different hyperparameter configurations to optimize the performance of a machine learning model. Hyperparameters are settings that are not learned during training but are specified prior to the training process, such as learning rate, batch size, or the number of layers in a neural network.</p> \
-                             <p>The DL specialist prepared common parameters which require tuning in order for the DL model to perform well. \
-                             While he predefined well suited ranges for tuning, you are able to adapt these ranges in the following.</p> \
-                             <p>If you wish to train a model without parameter sweeps (not recommended!) the provided default values will be used.</p>")
-        info = widgets.HTML(f"<p>During hyperparameter sweeps it can be nessecary to reduce the dataset size or the number of epochs trained due to computational cost. However, this will influende the accuracy of the hyperparameter search. The DL specialist chose a well suited trade off by predefining these as follows: </p>")
-        
-        train_subset = widgets.HTML(f"<b>Train Subset:</b> {int(self.config['train_subset']*100)}%")
-        reduce_epochs = widgets.HTML(f"<b>Reduce Epochs:</b> {int(self.config['reduce_epochs']*100)}%")
-        method = widgets.HTML(f"<b>Method:</b> {self.config['method']}")
-        
-        parameter_str = f"<hr><h2>Fixed Parameters</h2><p>A set of parameters which are predefined by the DL expert, and will not be tuned during hyperparameter tuning.</p>"
-        for k in self.config['parameter'].keys():
-            parameter_str += f"<p> <b>{k}:</b> {self.config['parameter'][k]['value']}</p>"
-            parameter_str += f"<p style='font-size:80%'> {self.config['parameter'][k]['explanation']}</p>"
-            
-        parameter = widgets.HTML(parameter_str)
-        
-
-        widgets_list.extend([title, info, train_subset, reduce_epochs, method, parameter, widgets.HTML("<hr><h1>Hyperparameters</h1><p>The DL specialist has set default sweep parameters, however if you wish to change them, you can do so below. Each hyperparameter should be separated by a comma (,) to define a list of sweepable parameters.</p>")])
-
-        # Hyperparameters
-        for param, details in self.config['hyperparameter'].items():
-            explanation = widgets.HTML(f"<h2>{param}</h2> <p>{details['explanation']}</p>")
-            default = widgets.HTML(f"<b>Default:</b> {details['default']}")
-            # values = widgets.Text(value=str(details.get('values', 'N/A')), description='Values:')
-            values = widgets.Text(value=", ".join([str(v) for v in details['values']]), description='Values:')#str(details.get('values', 'N/A')), description='Values:')
-            
-
-            widgets_list.extend([explanation, default, values, widgets.HTML("<br>")])
-
-        return widgets.VBox(widgets_list)
     
-    def update_config(self, widget_box):
-        """Update the JSON configuration based on the values in the widget form."""
-        children = widget_box.children
-        index = 7  # Starting index for hyperparameters (after general parameters and <hr>)
-
-        for param, details in self.config['hyperparameter'].items():
-            values_widget = children[index + 2]  # Values widget for each parameter
-            values = values_widget.value
-
-            # Convert string of comma-separated values back to list of appropriate types
-            try:
-                parsed_values = [float(v) if ('.' in v) or ('e' in v) else int(v) for v in values.split(',')]
-            except ValueError:
-                raise ValueError(f"Invalid values provided for parameter '{param}'. Ensure all values are numeric.")
-
-            self.config['hyperparameter'][param]['values'] = parsed_values
-            index += 4  # Each parameter has 4 widgets (explanation, default, values, <br>)
-
-        return self.config
+    
+    def update_config(self, config):
+        """Update the JSON configuration based on the passed config."""
+        self.config = config
+        return
 
     def load_config(self, config_file):
         """Load the hyperparameter configuration from a JSON file."""
