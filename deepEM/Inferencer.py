@@ -164,7 +164,7 @@ class AbstractInference(ABC):
                     prediction = self.predict_single(images[0])
                     self.save_prediction(image, prediction, os.path.join(self.save_to, "prediction"))
                 else: 
-                    print_error(f"Could not find {self.data_path}. Is is neither a file nor a directory.")
+                    print_error(f"Path to data for inference does not exist. Could not find {self.data_path}. Is is neither a file nor a directory.")
                     return            
         return 
     
