@@ -104,9 +104,9 @@ class Logger:
             message (str): The message to log.
         """
         self.logger.error(message)
-        #print(f"[ERROR] {message}", file=sys.stderr)
         
-    def log_best_sweepparameters(self, best_params):
+            
+    def log_sweepparameters(self, hyperparams, val_loss):
         """
         Save hyperparameters to a JSON file.
         
@@ -114,23 +114,46 @@ class Logger:
             hyperparams (dict): Dictionary of hyperparameters.
         """
         hyperparams_path = os.path.join(self.data_path, "Sweep_Parameters", "best_sweep_parameters.json")
-        try: 
-            curr_val = load_json(hyperparams_path)['val_loss'] 
-        except:
-            curr_val = np.inf
+        updated = False
+        try:
+            sweep_log = load_json(hyperparams_path)
+            sweep_log["tested_configurations"].append(hyperparams.copy())
+            if(val_loss < sweep_log["best_params"]["val_loss"]):
+                hyperparams['val_loss'] = val_loss
+                sweep_log["best_params"] = hyperparams
+                updated = True
+        except: 
+            sweep_log = {}
+            sweep_log["tested_configurations"] = [hyperparams.copy()]
+            hyperparams['val_loss'] = val_loss
+            sweep_log["best_params"] = hyperparams
             os.makedirs(os.path.join(self.data_path, "Sweep_Parameters"))
+            
+        with open(hyperparams_path, "w") as f:
+            json.dump(sweep_log, f, indent=4)
+        self.log_info(f"Current best sweep parameters were saved to {hyperparams_path}")
+        return updated
         
-        if(best_params["val_loss"] < curr_val):
-            with open(hyperparams_path, "w") as f:
-                json.dump(best_params, f, indent=4)
-            self.log_info(f"Current best sweep parameters were saved to {hyperparams_path}")
             
     def load_best_sweep(self):
         hyperparams_path = os.path.join(self.data_path, "Sweep_Parameters", "best_sweep_parameters.json")
         try: 
-            return load_json(hyperparams_path)
+            return load_json(hyperparams_path)["best_params"]
         except:
             return None
+        
+    def check_if_sweep_exists(self, hyperparams):
+        hyperparams_path = os.path.join(self.data_path, "Sweep_Parameters", "best_sweep_parameters.json")
+        try: 
+            tested_configurations = load_json(hyperparams_path)["tested_configurations"]
+            # exists = (hyperparams in tested_configurations)
+            exists = any(hyperparams == config for config in tested_configurations)
+            if(exists): 
+                self.log_info(f"Current sweep configuration {hyperparams} already exists at {hyperparams_path}. Continue to next configuration.")
+            return exists
+        except:
+            self.log_info(f"Could not find a sweep configuration at {hyperparams_path}.")
+            return False
         
     
 

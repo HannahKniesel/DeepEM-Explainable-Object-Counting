@@ -2,6 +2,8 @@ import ipywidgets as widgets
 import json
 import os
 
+
+
 def find_file(root_dir: str, filename: str) -> str:
     """
     Recursively searches for a file within a directory.
@@ -118,11 +120,35 @@ def create_text_widget(name: str, value: str, description: str):
     text_widget = widgets.Text(
         value=str(value),
         description=name,
-        style={'description_width': 'initial'}
+        style={'description_width': 'initial'}, 
+        layout={'width': '1000px'}
     )
     description_widget = widgets.HTML(value=f"<b>Hint:</b> {description}")
 
     return text_widget, description_widget
+
+
+def create_checkbox_widget(name: str, value: bool, description: str):
+    """
+    Creates an interactive checkbox widget with a description.
+
+    Args:
+        name (str): Label for the widget.
+        value (bool): Default state of the checkbox (True for checked, False for unchecked).
+        description (str): Hint text displayed below the widget.
+
+    Returns:
+        tuple: A tuple containing the checkbox widget and its description widget.
+    """
+    checkbox_widget = widgets.Checkbox(
+        value=value,
+        description=name,
+        style={'description_width': 'initial'}
+    )
+    description_widget = widgets.HTML(value=f"<b>Hint:</b> {description}")
+
+    return checkbox_widget, description_widget
+
 
 
 def load_json(file: str) -> dict:

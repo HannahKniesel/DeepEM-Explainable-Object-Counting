@@ -6,7 +6,7 @@ import time
 import numpy as np
 from tqdm import tqdm
 from abc import ABC, abstractmethod
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 
 from deepEM.Utils import load_json, extract_defaults, get_fixed_parameters, format_time
 
@@ -38,6 +38,13 @@ class AbstractModelTrainer(ABC):
                 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = None
+        
+        trainset, valset, testset = self.setup_datasets()
+        self.train_loader, self.val_loader, self.test_loader= self.setup_dataloaders(trainset, valset, testset)
+        # setup number of training epochs 
+        self.reduce_epochs = None
+        self.set_epochs()
+        self.finetuning = False
             
     def prepare(self, config=None, train_subset=None, reduce_epochs=None, set_parameters = True):
         if(set_parameters):
@@ -79,17 +86,17 @@ class AbstractModelTrainer(ABC):
         
         
     def set_epochs(self):
-        self.num_epochs = self.parameter["epochs"]
-        self.validation_interval = self.parameter['validation_interval']
+        self.num_epochs = max([1,self.parameter["epochs"]])
+        self.validation_interval = max([1,self.parameter['validation_interval']])
         if(self.reduce_epochs):
-            self.num_epochs = int(self.reduce_epochs*self.num_epochs)
-            self.validation_interval = int(self.reduce_epochs*self.validation_interval)
+            self.num_epochs = max([1,int(self.reduce_epochs*self.num_epochs)])
+            self.validation_interval = max([1,int(self.reduce_epochs*self.validation_interval)])
             
         
         
     def subsample_trainingdata(self, dataset): 
-        if(self.train_subset):
-            num_samples = int(len(dataset)*self.train_subset)
+        if(self.train_subset is not None):
+            num_samples = max([1,int(len(dataset)*self.train_subset)])
             torch.manual_seed(42)
             shuffled_indices = torch.randperm(len(dataset))[:num_samples]
             subset = torch.utils.data.Subset(dataset, shuffled_indices)
@@ -387,13 +394,15 @@ class AbstractModelTrainer(ABC):
         else:
             self.patience_counter += 1
 
-    def load_checkpoint(self, checkpoint_path):
+    def load_checkpoint(self, checkpoint_path, finetuning=False):
         """
         Load the model, optimizer, and scheduler state from a checkpoint.
         
         Args:
             checkpoint_path (str): Path to the checkpoint to resume training from.
         """
+        
+        print(checkpoint_path)
         checkpoint = torch.load(checkpoint_path)
         self.parameter = checkpoint['parameter']
         self.prepare(set_parameters=False)
@@ -407,10 +416,16 @@ class AbstractModelTrainer(ABC):
         self.best_val_loss = checkpoint['val_loss']
         self.patience_counter = 0  # Reset patience counter
         
-        self.start_epoch = checkpoint['epoch']
+        if(finetuning):
+            self.start_epoch = checkpoint['epoch']
+            self.logger.log_info(f"Resumed training from checkpoint: {checkpoint_path} (Validation Loss: {self.best_val_loss:.4f}) | Remaining epochs: {self.num_epochs - self.start_epoch}")
+            
+        else: 
+            self.start_epoch = 0
+            self.logger.log_info(f"Loaded model checkpoint for finetuning from: {checkpoint_path} (Validation Loss: {self.best_val_loss:.4f})")
+            
         
         
-        self.logger.log_info(f"Resumed training from checkpoint: {checkpoint_path} (Validation Loss: {self.best_val_loss:.4f})")
 
     def train_epoch(self, epoch):
         """
@@ -478,12 +493,18 @@ class AbstractModelTrainer(ABC):
 
         return train_loss, val_loss, False
 
-    def test(self):
+    def test(self, evaluate_on_full):
         """
         Run the test loop after training.
         """
         self.logger.init(f"Evaluate")
         self.logger.init_directories()
+        if(evaluate_on_full):
+            # reinit dataset with no train/test_split
+            combined_dataset = ConcatDataset([self.train_loader.dataset, self.val_loader.dataset, self.test_loader.dataset])
+            combined_dataloader = DataLoader(combined_dataset, batch_size=self.test_loader.batch_size, shuffle=False)
+            self.test_loader = combined_dataloader
+            self.logger.print_info(f"Evaluate on full dataset with {len(combined_dataset)} samples.")
         
         self.model.to(self.device)
 
@@ -529,7 +550,7 @@ class AbstractModelTrainer(ABC):
         self.logger.init_directories()
         # Resume training from checkpoint if specified, otherwise reset parameters before training
         if self.resume_from_checkpoint:
-            self.load_checkpoint(self.resume_from_checkpoint)
+            self.load_checkpoint(self.resume_from_checkpoint, self.finetuning)
         else: 
             self.model.reset_model_parameters_recursive()
             
