@@ -400,31 +400,31 @@ class AbstractModelTrainer(ABC):
         
         Args:
             checkpoint_path (str): Path to the checkpoint to resume training from.
+            finetuning (bool): Weather to use the checkpoint file for finetuing (will only set model weights, but ignore optimizer states and similar).
+
         """
         
-        print(checkpoint_path)
         checkpoint = torch.load(checkpoint_path)
         self.parameter = checkpoint['parameter']
         self.prepare(set_parameters=False)
         
         
         self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        if self.scheduler and checkpoint['scheduler_state_dict']:
-            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        
-        self.best_val_loss = checkpoint['val_loss']
-        self.patience_counter = 0  # Reset patience counter
-        
-        if(finetuning):
+
+        if(not finetuning):
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            if self.scheduler and checkpoint['scheduler_state_dict']:
+                self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            
+            self.best_val_loss = checkpoint['val_loss']
+            self.patience_counter = 0  # Reset patience counter
             self.start_epoch = checkpoint['epoch']
             self.logger.log_info(f"Resumed training from checkpoint: {checkpoint_path} (Validation Loss: {self.best_val_loss:.4f}) | Remaining epochs: {self.num_epochs - self.start_epoch}")
-            
+                        
         else: 
             self.start_epoch = 0
             self.logger.log_info(f"Loaded model checkpoint for finetuning from: {checkpoint_path} (Validation Loss: {self.best_val_loss:.4f})")
             
-        
         
 
     def train_epoch(self, epoch):
