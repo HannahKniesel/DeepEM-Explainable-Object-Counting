@@ -411,7 +411,9 @@ class AbstractModelTrainer(ABC):
         
         self.model.load_state_dict(checkpoint['model_state_dict'])
 
+
         if(not finetuning):
+            self.save_checkpoint(checkpoint['epoch'], checkpoint['val_loss'])
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             if self.scheduler and checkpoint['scheduler_state_dict']:
                 self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
