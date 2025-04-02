@@ -1,6 +1,29 @@
 import ipywidgets as widgets
 import json
 import os
+import random
+import numpy as np
+import torch
+
+def set_seed(seed: int = 42, deterministic: bool = True, benchmark: bool = False):
+    """Set all relevant seeds for reproducibility in PyTorch, NumPy, and Python's random module.
+
+    Args:
+        seed (int): The seed value to set.
+        deterministic (bool): If True, ensures deterministic behavior in PyTorch.
+        benchmark (bool): If True, enables CUDNN benchmark mode (faster, but non-deterministic).
+    """
+    random.seed(seed)  # Python's built-in random module
+    np.random.seed(seed)  # NumPy's random module
+    torch.manual_seed(seed)  # PyTorch CPU
+    torch.cuda.manual_seed(seed)  # PyTorch CUDA
+    torch.cuda.manual_seed_all(seed)  # Multi-GPU safe
+
+    # Ensuring deterministic behavior in PyTorch (if required)
+    if deterministic:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = benchmark  # Benchmark mode can be disabled for full determinism
+
 
 
 
