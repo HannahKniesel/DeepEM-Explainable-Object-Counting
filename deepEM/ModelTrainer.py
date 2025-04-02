@@ -589,7 +589,7 @@ class AbstractModelTrainer(ABC):
             if self.scheduler and (self.parameter['scheduler_step_by'] == "epoch"):
                 self.scheduler.step()
         self.logger.plot_training_curves(train_loss_history, train_epoch, val_loss_history, val_epoch, show = True)
-        self.logger.log_info(f"Finished training. Find logs and model checkpoints at: {self.logger.log_dir}\n")
+        self.logger.log_info(f"Finished training. Find logs and model checkpoints at: {self.logger.log_dir}")
         return np.min(val_loss_history)
 
 

@@ -127,14 +127,16 @@ class ModelTuner(ABC):
                 accum_time += elapsed_time
                 remaining_time = (total_combinations - (index+1))*(accum_time/(index+1))
                 self.logger.log_info(f"Hyperparameters: {hyperparams}, Validation Loss: {val_loss}")
-                self.logger.log_info(f"Avg time single sweep: {format_time(accum_time/(index+1))} | Remaining_time: {format_time(remaining_time)}")
+                self.logger.log_info(f"Avg time single sweep: {format_time(accum_time/(index+1))} | Remaining_time: {format_time(remaining_time)}\n")
             except Exception as e:
                 self.logger.log_error(f"An error occurred during hyperparameter search with following parameters: \n{hyperparams}")
                 self.logger.log_error(f"Error: \n{e}\n")
                 
             updated = self.logger.log_sweepparameters(hyperparams, val_loss)
             if(updated):
-                best_index = index                
+                best_index = index
+                best_params = hyperparams
+                best_loss = val_loss                
 
         if(best_index == -1):
             self.logger.log_info(f"Best Parameters: {best_params}, Best Loss: {best_loss}, from previous sweep.")
