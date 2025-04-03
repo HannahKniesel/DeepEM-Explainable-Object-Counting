@@ -1,3 +1,4 @@
+from functools import reduce
 import torch
 import os
 import copy
@@ -46,7 +47,7 @@ class AbstractModelTrainer(ABC):
         self.set_epochs()
         self.finetuning = False
             
-    def prepare(self, config=None, train_subset=None, reduce_epochs=None, set_parameters = True):
+    def prepare(self, config=None, train_subset=None, reduce_epochs=None, num_epochs=None, set_parameters = True):
         if(set_parameters):
             if(not config):
                 hyperparameters = load_json(os.path.join(config_dir,"parameters.json"))
@@ -71,6 +72,8 @@ class AbstractModelTrainer(ABC):
         
         # setup number of training epochs 
         self.set_epochs()
+        if(num_epochs is not None):
+            self.num_epochs = num_epochs
         
         # Set up optimizer and scheduler
         self.optimizer, self.scheduler = self.setup_optimizer()
@@ -406,7 +409,7 @@ class AbstractModelTrainer(ABC):
         
         checkpoint = torch.load(checkpoint_path)
         self.parameter = checkpoint['parameter']
-        self.prepare(set_parameters=False)
+        self.prepare(set_parameters=False, num_epochs=self.num_epochs)
         
         
         self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -425,6 +428,10 @@ class AbstractModelTrainer(ABC):
             self.best_val_loss = checkpoint['val_loss']
             self.patience_counter = 0  # Reset patience counter
             self.start_epoch = checkpoint['epoch']
+            remaining_epochs = self.num_epochs - self.start_epoch
+            if(remaining_epochs < 0):
+                self.logger.log_warning(f"Current number of training epochs ({self.num_epochs}) is smaller than last epoch of the loaded model ({self.start_epoch}). Will train the model for {self.num_epochs} epochs.")
+                self.start_epoch = 0
             self.logger.log_info(f"Resumed training from checkpoint: {checkpoint_path} (Validation Loss: {self.best_val_loss:.4f}) | Remaining epochs: {self.num_epochs - self.start_epoch}")
                         
         else: 

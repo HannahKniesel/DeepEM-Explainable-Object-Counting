@@ -31,7 +31,10 @@ class AbstractInference(ABC):
 
             
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            self.save_to = os.path.join(self.data_path, f"results-{Path(self.model_path).parent.parent.parent.stem}", timestamp)
+            if(os.path.isfile(self.data_path)):
+                self.save_to = os.path.join(Path(self.data_path).parent, f"results-{Path(self.model_path).parent.parent.parent.stem}", timestamp)
+            else:
+                self.save_to = os.path.join(self.data_path, f"results-{Path(self.model_path).parent.parent.parent.stem}", timestamp)
             os.makedirs(self.save_to, exist_ok=True)
             
             with open(os.path.join(self.save_to,"model-and-data.txt"), 'w') as file:
@@ -161,7 +164,7 @@ class AbstractInference(ABC):
                     self.predict_batch(images)
                 elif(os.path.isfile(self.data_path)):
                     image = self.load_single_image(self.data_path)
-                    prediction = self.predict_single(images[0])
+                    prediction = self.predict_single(image)
                     self.save_prediction(image, prediction, os.path.join(self.save_to, "prediction"))
                 else: 
                     print_error(f"Path to data for inference does not exist. Could not find {self.data_path}. Is is neither a file nor a directory.")
