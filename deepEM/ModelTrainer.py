@@ -429,15 +429,16 @@ class AbstractModelTrainer(ABC):
             self.patience_counter = 0  # Reset patience counter
             self.start_epoch = checkpoint['epoch']
             remaining_epochs = self.num_epochs - self.start_epoch
-            if(remaining_epochs < 0):
-                self.logger.log_warning(f"Current number of training epochs ({self.num_epochs}) is smaller than last epoch of the loaded model ({self.start_epoch}). Will train the model for {self.num_epochs} epochs.")
+            if(remaining_epochs <= 0):
+                self.logger.log_warning(f"Current number of training epochs ({self.num_epochs}) is smaller or equal than last epoch of the loaded model ({self.start_epoch}). Will train the model for {self.num_epochs} epochs.")
                 self.start_epoch = 0
             self.logger.log_info(f"Resumed training from checkpoint: {checkpoint_path} (Validation Loss: {self.best_val_loss:.4f}) | Remaining epochs: {self.num_epochs - self.start_epoch}")
                         
         else: 
             self.start_epoch = 0
             self.logger.log_info(f"Loaded model checkpoint for finetuning from: {checkpoint_path} (Validation Loss: {self.best_val_loss:.4f})")
-            
+        
+        self.model.to(self.device)
         
 
     def train_epoch(self, epoch):
@@ -515,7 +516,7 @@ class AbstractModelTrainer(ABC):
             combined_dataset = ConcatDataset([self.train_loader.dataset, self.val_loader.dataset, self.test_loader.dataset])
             combined_dataloader = DataLoader(combined_dataset, batch_size=self.test_loader.batch_size, shuffle=False)
             self.test_loader = combined_dataloader
-            self.logger.print_info(f"Evaluate on full dataset with {len(combined_dataset)} samples.")
+            self.logger.log_info(f"Evaluate on full dataset with {len(combined_dataset)} samples.")
         
         self.model.to(self.device)
 

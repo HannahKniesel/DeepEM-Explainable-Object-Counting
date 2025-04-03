@@ -70,7 +70,7 @@ class Inference(AbstractInference):
         Returns: 
             torch.nn.Module: the model
         """
-        return Model(self.metadata["class_names"])
+        return Model(self.metadata["class_names"]).to(self.device)
      
     
     

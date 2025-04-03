@@ -42,7 +42,7 @@ class ModelTrainer(AbstractModelTrainer):
         annotation_file = os.path.join(self.data_path,"annotations.xml")
         root = ET.parse(annotation_file).getroot()
         label_names = [label.find('name').text.lower() for label in root.findall('.//task/labels/label')]
-        return Model(label_names)
+        return Model(label_names).to(self.device)
 
     
     def inference_metadata(self):
