@@ -413,7 +413,11 @@ class AbstractModelTrainer(ABC):
 
 
         if(not finetuning):
-            self.save_checkpoint(checkpoint['epoch'], checkpoint['val_loss'])
+            try:
+                # should only save when training was done. Does not save model checkpoint to evaluate. 
+                self.save_checkpoint(checkpoint['epoch'], checkpoint['val_loss'])
+            except: 
+                pass
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             if self.scheduler and checkpoint['scheduler_state_dict']:
                 self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
@@ -460,7 +464,7 @@ class AbstractModelTrainer(ABC):
         # Validation loop
         
         with torch.no_grad():            
-            if((epoch % self.validation_interval) == 0):
+            if(((epoch % self.validation_interval) == 0) or (epoch == (self.num_epochs-1))):
                 val_loss = 0.0
                 self.model.eval()
                 self.qualify(self.val_vis_loader, f"validation_epoch-{epoch}")
@@ -499,8 +503,6 @@ class AbstractModelTrainer(ABC):
         """
         Run the test loop after training.
         """
-        self.logger.init(f"Evaluate")
-        self.logger.init_directories()
         if(evaluate_on_full):
             # reinit dataset with no train/test_split
             combined_dataset = ConcatDataset([self.train_loader.dataset, self.val_loader.dataset, self.test_loader.dataset])
@@ -516,7 +518,7 @@ class AbstractModelTrainer(ABC):
         metrics_sum = {}  # To store the sum of metrics across batches
         num_batches = len(self.test_loader)
 
-        for batch in self.test_loader:
+        for batch in tqdm(self.test_loader, desc="Evaluate"):
             loss, batch_metrics = self.test_step(batch)
             test_loss += loss
 
